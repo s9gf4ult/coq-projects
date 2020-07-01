@@ -16,10 +16,22 @@ Inductive Exec : Project -> Prop :=
 | EProd : forall a b, Exec a -> Exec b -> Exec (Prod a b)
 .
 
+Fixpoint execLeft (p : Project) : Exec p :=
+  match p with
+  | Task n => ETask n
+  | Sum a b => ESumLeft a b (execLeft a)
+  | Prod a b => EProd a b (execLeft a) (execLeft b)
+  end
+  .
+
 (* a is less than b. If b is executed, then a is also executed *)
 Definition projLe a b : Prop := Exec b -> Exec a.
 
-Notation "a '<=' b" := (projLe a b).
+Notation "a '<=' b" := (projLe a b) (at level 70).
+
+Notation "a '>=' b" := (projLe b a) (at level 70).
+
+Notation "a '<=>' b" := ((projLe a b) /\ (projLe b a)) (at level 70).
 
 Lemma leTransitive : forall a b c, a <= b -> b <= c -> a <= c.
 Proof.
