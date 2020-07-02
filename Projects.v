@@ -45,6 +45,58 @@ Notation "a '>=' b" := (projGe b a) (at level 70) : proj_scope.
 
 Notation "a '<=>' b" := (projE a b) (at level 70) : proj_scope.
 
+Open Scope nat.
+Lemma minLeMax : forall (a b c d : nat) ,
+    a <= c ->
+    b <= d ->
+    min a b <= max c d.
+Proof.
+  intros.
+  destruct (a <=? b) eqn:AB. {
+    apply leb_complete in AB.
+    assert (ABmin: min a b = a) by (apply min_l ; assumption).
+    rewrite ABmin.
+    destruct (c <=? d) eqn:CD. {
+      apply leb_complete in CD.
+      assert (CDmax : max c d = d) by (apply max_r ; assumption).
+      rewrite CDmax.
+      omega.
+    } {
+      rewrite leb_iff_conv in CD.
+      assert (CDmax: max c d = c) by (apply max_l ; omega).
+      rewrite CDmax.
+      omega.
+    }
+  } {
+    apply leb_iff_conv in AB.
+    assert (ABmin: min a b = b) by (apply min_r ; omega).
+    rewrite ABmin.
+    destruct (c <=? d) eqn:CD. {
+      apply leb_complete in CD.
+      assert (CDmax : max c d = d) by (apply max_r ; assumption).
+      rewrite CDmax.
+      omega.
+    } {
+      rewrite leb_iff_conv in CD.
+      assert (CDmax: max c d = c) by (apply max_l ; omega).
+      rewrite CDmax.
+      omega.
+    }
+  }
+Qed.
+Close Scope nat.
+
+Lemma execHiLo : forall a lo hi, Exec a hi lo -> (hi <= lo)%nat.
+Proof.
+  intros.
+  induction H ; subst.
+  - omega.
+  - omega.
+  - omega.
+  - apply minLeMax ; assumption. (* EProd *)
+  - omega.
+Qed.
+
 Lemma projESymmetry : forall a b, a <=> b -> b <=> a.
 Proof.
   unfold projE, projLe, projGe.
@@ -53,7 +105,7 @@ Proof.
   constructor ; assumption.
 Qed.
 
-Lemma leTransitive : forall a b c, a <= b -> b <= c -> a <= c.
+Lemma leTransitive : forall (a b c : Project), a <= b -> b <= c -> a <= c.
 Proof.
   unfold projLe.
   intros.
@@ -134,5 +186,24 @@ Proof.
         apply ESumRight. constructor ; assumption.
       }
     }
+  }
+Qed.
+
+Lemma seqTransitive : forall a b c, a :> (b :> c) <=> (a :> b) :> c.
+Proof.
+  unfold projE, projLe, projGe.
+  intros.
+  split ; intros ; intros ; inversion H. {
+    inversion H2 ; subst.
+    eapply ESeq .
+    - eassumption.
+    - eapply ESeq ; eassumption.
+    - assumption.
+  } {
+    inversion H3 ; subst.
+    eapply ESeq.
+    - eapply ESeq ; eassumption.
+    - eassumption.
+    - omega.
   }
 Qed.
