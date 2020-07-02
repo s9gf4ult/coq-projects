@@ -89,12 +89,8 @@ Close Scope nat.
 Lemma execHiLo : forall a lo hi, Exec a hi lo -> (hi <= lo)%nat.
 Proof.
   intros.
-  induction H ; subst.
-  - omega.
-  - omega.
-  - omega.
+  induction H ; subst ; try omega.
   - apply minLeMax ; assumption. (* EProd *)
-  - omega.
 Qed.
 
 Lemma projESymmetry : forall a b, a <=> b -> b <=> a.
