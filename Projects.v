@@ -203,3 +203,32 @@ Proof.
     - omega.
   }
 Qed.
+
+Lemma prodReduce : forall a b c d ,
+    (a <= c) + (a <= d) ->
+    (b <= c) + (b <= d) ->
+    a :* b <= c :* d.
+Proof.
+  unfold projE, projLe, projGe.
+  intros.
+  inversion H1 ; inversion H ; inversion H0 ; subst .
+  - constructor ; auto.
+    apply H9.
+
+    constructor ; auto.
+Qed.
+
+Lemma sumReduce : forall a b c d,
+    (a <= c) + (b <= c) ->
+    (a <= d) + (b <= d) ->
+    a :+ b <= c :+ d.
+Proof.
+  unfold projE, projLe, projGe.
+  intros.
+  inversion H1 ; inversion H ; inversion H0 ; subst ;
+    try (apply ESumLeft ; auto) ;
+    try (apply ESumRight ; auto).
+  -
+Qed.
+
+Lemma
