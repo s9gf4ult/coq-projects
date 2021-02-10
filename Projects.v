@@ -7,7 +7,7 @@ Inductive Project : Set :=
 | Seq : Project -> Project -> Project
 .
 
-Inductive Exec : Project -> nat -> nat -> Type :=
+Inductive Exec : Project -> nat -> nat -> Prop :=
 | ETask : forall (tid ord : nat), Exec (Task tid) ord ord
 | ESumLeft : forall a b lo hi, Exec a lo hi -> Exec (Sum a b) lo hi
 | ESumRight : forall a b lo hi, Exec b lo hi -> Exec (Sum a b) lo hi
@@ -23,9 +23,9 @@ Inductive Exec : Project -> nat -> nat -> Type :=
 .
 
 (* a is less than b. If b is executed, then a is also executed *)
-Definition projLe a b : Type := forall lo hi, Exec b lo hi -> Exec a lo hi.
+Definition projLe a b : Type := (exists lo1 hi1, Exec b lo1 hi1) -> (exists lo2 hi2, Exec a lo2 hi2).
 
-Definition projGe a b : Type := forall lo hi, Exec a lo hi -> Exec b lo hi.
+Definition projGe a b : Type := projLe b a.
 
 Definition projE a b : Type := projLe a b * projGe a b.
 
@@ -95,123 +95,202 @@ Qed.
 
 Lemma projESymmetry : forall a b, a <=> b -> b <=> a.
 Proof.
-  unfold projE, projLe, projGe.
+  unfold projE, projGe, projLe.
   intros.
   inversion H.
   constructor ; assumption.
 Qed.
 
+Ltac destructexists :=
+  repeat match goal with
+           H : exists _, _  |- _ => destruct H
+         end.
+
+Ltac eexistsall :=
+  repeat match goal with
+           |- exists _, _ => eexists
+         end.
+
+Ltac unfoldproj := unfold projE, projGe, projLe.
+
+Ltac findExec :=
+  match goal with
+  | H : Exec ?a _ _ |- Exec ?a _ _ => apply H
+  | H : Exec ?a _ _ |- Exec (?a :+ _) _ _ => apply ESumLeft; apply H
+  | H : Exec ?a _ _ |- Exec (_ :+ ?a) _ _ => apply ESumRight; apply H
+  | H : Exec ?a _ _ |- Exec (_ :+ (?a :+ _)) _ _ => apply ESumRight ; apply ESumLeft; apply H
+  | H : Exec ?a _ _ |- Exec (_ :+ (_ :+ ?a)) _ _ => apply ESumRight ; apply ESumRight; apply H
+  end.
+
 Lemma leTransitive : forall (a b c : Project), a <= b -> b <= c -> a <= c.
 Proof.
-  unfold projLe.
+  unfoldproj.
   intros.
   auto.
 Qed.
 
 Lemma sumSymmetry : forall a b, a :+ b <=> b :+ a.
 Proof.
-  unfold projE, projLe, projGe.
-  split ;
-  intros ;
-  inversion H ; subst ;
-    try (apply ESumRight ; assumption ) ;
-    try (apply ESumLeft ; assumption ) .
+  unfoldproj.
+  intros.
+  split ; intros ; destructexists ; eexistsall
+    ; inversion H ; subst ; findExec.
 Qed.
 
 Lemma sumTransitive : forall a b c, a :+ (b :+ c) <= (a :+ b) :+ c .
 Proof.
-  unfold projE, projLe, projGe.
+  unfoldproj.
   intros.
+  destructexists.
+  eexistsall.
   inversion H ; subst. {
-    inversion H4 ; subst.
-    - apply ESumLeft. assumption.
-    - apply ESumRight. apply ESumLeft. assumption.
+    inversion H4 ; subst ; findExec.
   } {
-    apply ESumRight. apply ESumRight. assumption.
+    findExec.
   }
 Qed.
 
 Lemma prodSymmetry : forall a b, a :* b <=> b :* a.
 Proof.
-  unfold projE, projLe, projGe.
+  unfoldproj.
   intros.
-  split;
-    intros;
-    inversion H;
-    rewrite Nat.min_comm;
-    rewrite Nat.max_comm;
-    constructor ; assumption.
+  split ; intros ; destructexists ;
+    inversion H ; subst ;
+    remember (Init.Nat.min loB loA) as lo eqn:Le ;
+    remember (Init.Nat.max hiB hiA) as hi eqn:He ;
+    exists lo, hi ;
+    rewrite Le;  rewrite He;
+     eapply EProd ; assumption.
 Qed.
 
 Lemma prodTransitive : forall a b c, a :* (b :* c) <=> (a :* b) :* c .
 Proof.
-  unfold projE, projLe, projGe.
+  unfoldproj.
   intros.
-  split ; intros ; inversion H. {
-    inversion H2. subst a1 b1 loA hiA.
-    rewrite <- Nat.min_assoc.
-    rewrite <- Nat.max_assoc.
-    repeat (constructor ; try assumption).
+  split ; intros ; destructexists ; inversion H ; subst. {
+    inversion H2. subst.
+    eexistsall.
+    constructor ; try findExec ; try constructor ; findExec.
   } {
-    inversion H5. subst a1 b1 loB hiB.
-    rewrite Nat.min_assoc.
-    rewrite Nat.max_assoc.
-    repeat (constructor ; try assumption).
+    inversion H5. subst.
+    eexistsall.
+    constructor ; try findExec ; try constructor ; findExec.
   }
 Qed.
 
 Lemma sumDistrib : forall a b c, a :* (b :+ c) <=> a :* b :+ a :* c.
 Proof.
-  unfold projE, projLe, projGe.
+  unfoldproj.
   intros.
-  split; intros. {
+  split; intros ; destructexists. {
     inversion H. {
-      inversion H4. subst a1 b1 lo hi.
-      constructor ; try assumption.
-      apply ESumLeft ; assumption.
+      inversion H4. subst.
+      eexistsall.
+      constructor ; try findExec; try findExec.
     } {
-      inversion H4. subst a1 b1 lo hi.
-      constructor ; try assumption.
-      apply ESumRight ; assumption.
+      inversion H4. subst.
+      eexistsall.
+      constructor ; try findExec; try findExec.
     }
   } {
-    inversion H ; subst. {
-      inversion H5 ; subst. {
-        apply ESumLeft. constructor ; assumption.
-      } {
-        apply ESumRight. constructor ; assumption.
-      }
+    inversion H ; subst.
+    inversion H5 ; subst; eexistsall. {
+      apply ESumLeft. constructor ; findExec.
+    } {
+      apply ESumRight. constructor ; findExec.
     }
   }
 Qed.
 
 Lemma seqTransitive : forall a b c, a :> (b :> c) <=> (a :> b) :> c.
 Proof.
-  unfold projE, projLe, projGe.
+  unfoldproj.
   intros.
-  split ; intros ; intros ; inversion H. {
+  split ; intros; destructexists. {
+    inversion H ; subst.
     inversion H2 ; subst.
-    eapply ESeq .
-    - eassumption.
-    - eapply ESeq ; eassumption.
+    eexistsall.
+    eapply ESeq.
+    - findExec.
+    - eapply ESeq ; try findExec ; assumption.
     - assumption.
   } {
+    inversion H ; subst.
     inversion H3 ; subst.
+    eexistsall.
     eapply ESeq.
-    - eapply ESeq ; eassumption.
-    - eassumption.
-    - omega.
+    - eapply ESeq; try findExec ; assumption.
+    - findExec.
+    - assumption.
   }
 Qed.
+
+Ltac applyExEx :=
+  match goal with
+  |   Ex: Exec ?a _ _
+    , f : ((exists lo1 hi1 : nat, Exec ?a lo1 hi1)
+           -> exists lo2 hi2 : nat, Exec ?b lo2 hi2)
+    |- _
+    => assert (exists lo hi : nat, Exec ?b lo hi) ; apply f ; eexistsall ; apply Ex
+  end.
 
 Lemma prodReduce : forall a b c d ,
     (a <= c) + (a <= d) ->
     (b <= c) + (b <= d) ->
     a :* b <= c :* d.
 Proof.
-  unfold projE, projLe, projGe.
+  unfoldproj.
   intros.
-  inversion H1 ; inversion H ; inversion H0 ; subst .
+  destruct H. {
+    destruct H0. {
+      destructexists.
+      inversion H ; subst.
+      applyExEx.
+      assert (exists lo hi : nat, Exec a lo hi) as A. {
+        apply e.
+        eexistsall. findExec.
+      }
+      assert (exists lo hi : nat, Exec b lo hi) as B. {
+        apply e0.
+        eexistsall. findExec.
+      }
+      destructexists.
+      eexistsall.
+      constructor ; findExec.
+    } {
+      destructexists.
+      inversion H ; subst.
+      assert (exists lo hi : nat, Exec a lo hi) as A. {
+        apply e.
+        eexistsall. findExec.
+      }
+      assert (exists lo hi : nat, Exec b lo hi) as B. {
+        apply e0.
+        eexistsall. findExec.
+      }
+      destructexists.
+      eexistsall.
+      constructor ; findExec.
+    }
+  } {
+    destruct H0 ; destructexists ; inversion H ; subst. {
+      assert (exists lo hi : nat, Exec a lo hi) as A. {
+        apply e.
+        eexistsall. findExec.
+      }
+      assert (exists lo hi : nat, Exec b lo hi) as B. {
+        apply e0.
+        eexistsall. findExec.
+      }
+      destructexists.
+      eexistsall.
+      constructor ; findExec.
+    }
+
+
+
+
+  destruct H1 ; inversion H0 ; subst .
   - constructor ; auto.
     apply H9.
 
