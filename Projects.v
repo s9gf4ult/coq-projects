@@ -86,7 +86,7 @@ Proof.
 Qed.
 Close Scope nat.
 
-Lemma execHiLo : forall a lo hi, Exec a hi lo -> (hi <= lo)%nat.
+Lemma execHiLo : forall a lo hi, Exec a lo hi -> (lo <= hi)%nat.
 Proof.
   intros.
   induction H ; subst ; try omega.
