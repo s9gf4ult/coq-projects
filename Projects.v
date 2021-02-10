@@ -226,12 +226,12 @@ Proof.
 Qed.
 
 Ltac applyExEx :=
-  match goal with
+  lazymatch goal with
   |   Ex: Exec ?a _ _
     , f : ((exists lo1 hi1 : nat, Exec ?a lo1 hi1)
            -> exists lo2 hi2 : nat, Exec ?b lo2 hi2)
     |- _
-    => assert (exists lo hi : nat, Exec ?b lo hi) ; apply f ; eexistsall ; apply Ex
+    => assert (exists lo hi : nat, Exec b lo hi) ; [ apply f ; eexistsall ; apply Ex | clear f]
   end.
 
 Lemma prodReduce : forall a b c d ,
@@ -241,60 +241,14 @@ Lemma prodReduce : forall a b c d ,
 Proof.
   unfoldproj.
   intros.
-  destruct H. {
-    destruct H0. {
-      destructexists.
-      inversion H ; subst.
-      applyExEx.
-      assert (exists lo hi : nat, Exec a lo hi) as A. {
-        apply e.
-        eexistsall. findExec.
-      }
-      assert (exists lo hi : nat, Exec b lo hi) as B. {
-        apply e0.
-        eexistsall. findExec.
-      }
-      destructexists.
-      eexistsall.
-      constructor ; findExec.
-    } {
-      destructexists.
-      inversion H ; subst.
-      assert (exists lo hi : nat, Exec a lo hi) as A. {
-        apply e.
-        eexistsall. findExec.
-      }
-      assert (exists lo hi : nat, Exec b lo hi) as B. {
-        apply e0.
-        eexistsall. findExec.
-      }
-      destructexists.
-      eexistsall.
-      constructor ; findExec.
-    }
-  } {
-    destruct H0 ; destructexists ; inversion H ; subst. {
-      assert (exists lo hi : nat, Exec a lo hi) as A. {
-        apply e.
-        eexistsall. findExec.
-      }
-      assert (exists lo hi : nat, Exec b lo hi) as B. {
-        apply e0.
-        eexistsall. findExec.
-      }
-      destructexists.
-      eexistsall.
-      constructor ; findExec.
-    }
-
-
-
-
-  destruct H1 ; inversion H0 ; subst .
-  - constructor ; auto.
-    apply H9.
-
-    constructor ; auto.
+  destruct H ; destruct H0 ;
+    destructexists ;
+    inversion H ; subst ;
+    applyExEx ;
+    applyExEx ;
+    destructexists ;
+    eexistsall ;
+    constructor ; findExec.
 Qed.
 
 Lemma sumReduce : forall a b c d,
@@ -302,12 +256,11 @@ Lemma sumReduce : forall a b c d,
     (a <= d) + (b <= d) ->
     a :+ b <= c :+ d.
 Proof.
-  unfold projE, projLe, projGe.
+  unfoldproj.
   intros.
-  inversion H1 ; inversion H ; inversion H0 ; subst ;
-    try (apply ESumLeft ; auto) ;
-    try (apply ESumRight ; auto).
-  -
+  destruct H ; destruct H0 ; destructexists ;
+    inversion H ; subst;
+    applyExEx;
+    destructexists;
+    eexistsall; findExec.
 Qed.
-
-Lemma
