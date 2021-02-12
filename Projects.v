@@ -129,7 +129,7 @@ Proof.
     split. {
       constructor.
     } {
-      omega.
+      auto.
     }
   } {
     destruct (execute' acc p1). destructexists. destruct H.
@@ -155,9 +155,10 @@ Proof.
     eexistsall.
     split. {
       eapply ESeq ; try findExec.
-      - omega.
+      - unfold gt in *.
+        apply Nat.lt_succ_l ; assumption.
     } {
-      omega.
+      assumption.
     }
   }
 Defined.
