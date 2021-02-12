@@ -174,6 +174,15 @@ Proof.
   findExec.
 Qed.
 
+(* This is fail, it must not be provable *)
+Lemma failure : forall a b, a <= b.
+Proof.
+  intros.
+  unfoldproj.
+  intros.
+  apply execute.
+Qed.
+
 Lemma leTransitive : forall (a b c : Project), a <= b -> b <= c -> a <= c.
 Proof.
   unfoldproj.
