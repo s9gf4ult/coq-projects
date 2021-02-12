@@ -101,6 +101,8 @@ Proof.
   constructor ; assumption.
 Qed.
 
+Ltac unfoldproj := unfold projE, projGe, projLe.
+
 Ltac destructexists :=
   repeat match goal with
            H : exists _, _  |- _ => destruct H
@@ -111,8 +113,6 @@ Ltac eexistsall :=
            |- exists _, _ => eexists
          end.
 
-Ltac unfoldproj := unfold projE, projGe, projLe.
-
 Ltac findExec :=
   match goal with
   | H : Exec ?a _ _ |- Exec ?a _ _ => apply H
@@ -121,6 +121,57 @@ Ltac findExec :=
   | H : Exec ?a _ _ |- Exec (_ :+ (?a :+ _)) _ _ => apply ESumRight ; apply ESumLeft; apply H
   | H : Exec ?a _ _ |- Exec (_ :+ (_ :+ ?a)) _ _ => apply ESumRight ; apply ESumRight; apply H
   end.
+
+Fixpoint execute' (acc : nat) (p : Project) : exists lo hi, (Exec p lo hi /\ (lo > acc)%nat).
+Proof.
+  destruct p. {
+    exists (S acc). eexists.
+    split. {
+      constructor.
+    } {
+      omega.
+    }
+  } {
+    destruct (execute' acc p1). destructexists. destruct H.
+    eexistsall.
+    split. {
+      findExec.
+    } {
+      assumption.
+    }
+  } {
+    destruct (execute' acc p1). destructexists. destruct H.
+    destruct (execute' acc p2). destructexists. destruct H1.
+    eexistsall.
+    split. {
+      constructor ; findExec.
+    } {
+      unfold gt in *.
+      apply Nat.min_glb_lt ; assumption.
+    }
+  } {
+    destruct (execute' acc p1). destructexists. destruct H.
+    destruct (execute' (S x0) p2). destructexists. destruct H1.
+    eexistsall.
+    split. {
+      eapply ESeq ; try findExec.
+      - omega.
+    } {
+      omega.
+    }
+  }
+Defined.
+
+(* Any project can be executed at least once *)
+Lemma execute : forall p, exists lo hi, (Exec p lo hi).
+Proof.
+  intros.
+  destruct (execute' O p).
+  destructexists.
+  destruct H.
+  eexistsall.
+  findExec.
+Qed.
 
 Lemma leTransitive : forall (a b c : Project), a <= b -> b <= c -> a <= c.
 Proof.
