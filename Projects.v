@@ -272,6 +272,46 @@ Section Lemmas.
   Qed.
 End Lemmas.
 
+Open Scope nat.
+Lemma minLeMax : forall (a b c d : nat) ,
+    a <= c ->
+    b <= d ->
+    min a b <= max c d.
+Proof.
+  intros.
+  destruct (a <=? b) eqn:AB. {
+    apply leb_complete in AB.
+    assert (ABmin: min a b = a) by (apply min_l ; assumption).
+    rewrite ABmin.
+    destruct (c <=? d) eqn:CD. {
+      apply leb_complete in CD.
+      assert (CDmax : max c d = d) by (apply max_r ; assumption).
+      rewrite CDmax.
+      omega.
+    } {
+      rewrite leb_iff_conv in CD.
+      assert (CDmax: max c d = c) by (apply max_l ; omega).
+      rewrite CDmax.
+      omega.
+    }
+  } {
+    apply leb_iff_conv in AB.
+    assert (ABmin: min a b = b) by (apply min_r ; omega).
+    rewrite ABmin.
+    destruct (c <=? d) eqn:CD. {
+      apply leb_complete in CD.
+      assert (CDmax : max c d = d) by (apply max_r ; assumption).
+      rewrite CDmax.
+      omega.
+    } {
+      rewrite leb_iff_conv in CD.
+      assert (CDmax: max c d = c) by (apply max_l ; omega).
+      rewrite CDmax.
+      omega.
+    }
+  }
+Qed.
+Close Scope nat.
 
 Instance natIsTime : is_time nat.
 Proof.
@@ -284,9 +324,9 @@ Proof.
   } {
     apply Nat.max_comm.
   } {
-
+    apply minLeMax.
   }
-
+Defined.
 
 Fixpoint execute' (acc : nat) (p : Project) : exists lo hi, (Exec p lo hi /\ (lo > acc)%nat).
 Proof.
@@ -321,8 +361,9 @@ Proof.
     eexistsall.
     split. {
       eapply ESeq ; try findExec.
-      - unfold gt in *.
-        apply Nat.lt_succ_l ; assumption.
+      - unfold gt, lt, tle in *.
+        simpl in *.
+        apply le_Sn_le. apply le_Sn_le. assumption.
     } {
       assumption.
     }
