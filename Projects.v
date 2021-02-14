@@ -270,6 +270,408 @@ Section Lemmas.
         destructexists;
         eexistsall; findExec.
   Qed.
+
+  Fixpoint projEqb (a b : Project) : bool :=
+    match a, b with
+      | Task x, Task y => Nat.eqb x y
+      | Sum x y, Sum u w => projEqb x u && projEqb y w
+      | Prod x y, Prod u w => projEqb x u && projEqb y w
+      | Seq x y, Seq u w => projEqb x u && projEqb y w
+      | _, _ => false
+    end.
+
+  Lemma projEqbIsEquivalence : forall a b, projEqb a b = true -> a = b.
+  Proof.
+    induction a ; intros b H
+    ; try (
+      destruct b ; try (simpl in H ; congruence ; fail)
+    ; simpl in H
+    ; symmetry in H
+    ; apply Bool.andb_true_eq in H
+    ; destruct H as [L R]
+    ; symmetry in L, R
+    ; apply IHa1 in L
+    ; apply IHa2 in R
+    ; rewrite L, R
+    ; reflexivity
+    ; fail ). {
+      destruct b ; try (simpl in H ; congruence ; fail). {
+        destruct (Nat.eqb n n0) eqn:Neq. {
+          apply beq_nat_true in Neq.
+          rewrite Neq.
+          reflexivity.
+        } {
+          simpl in H.
+          congruence.
+        }
+      }
+    }
+  Qed.
+
+  Lemma projEqbRefl : forall a, projEqb a a = true.
+  Proof.
+    induction a ; intros
+    ; try ( simpl ; rewrite IHa1, IHa2 ; reflexivity ; fail ). {
+      simpl. apply Nat.eqb_refl.
+    }
+  Qed.
+
+  Lemma projEqbFalseNeq : forall a b, projEqb a b = false -> a <> b.
+  Proof.
+    intros a b H.
+    intros eq. (* exfalso *)
+    rewrite eq in H.
+    rewrite projEqbRefl in H.
+    discriminate.
+  Qed.
+
+  Fixpoint projReplace (orig a b : Project) : Project :=
+    match projEqb orig a with
+    | true => b
+    | false =>
+      match orig with
+      | Task n => Task n
+      | Sum p1 p2 => Sum (projReplace p1 a b) (projReplace p2 a b)
+      | Prod p1 p2 => Prod (projReplace p1 a b) (projReplace p2 a b)
+      | Seq p1 p2 => Seq (projReplace p1 a b) (projReplace p2 a b)
+      end
+    end.
+
+  Lemma projReplaceSameRep : forall a b, projReplace a a b = b.
+  Proof.
+    destruct a ; intros
+    ; try ( simpl; repeat (rewrite projEqbRefl); simpl; reflexivity ; fail ). {
+      simpl. rewrite  Nat.eqb_refl. reflexivity.
+    }
+  Qed.
+
+  Lemma TaskNeq : forall n1 n2, Task n1 <> Task n2 -> n1 <> n2.
+  Proof.
+    intros.
+    intros eq.
+    rewrite eq in H.
+    apply H. reflexivity.
+  Qed.
+
+  Lemma SumNeqAnd : forall a1 a2 b1 b2, (Sum a1 a2) <> (Sum b1 b2) -> ~ (a1 = b1 /\ a2 = b2).
+  Proof.
+    intros.
+    intros [a b].
+    subst.
+    apply H.
+    reflexivity.
+  Qed.
+
+  Lemma SumNeqOr : forall a1 a2 b1 b2, (Sum a1 a2) <> (Sum b1 b2) -> (~ a1 = b1 \/ ~ a2 = b2).
+  Proof.
+    intros.
+    apply SumNeqAnd in H.
+    apply Decidable.not_and in H.
+    - assumption.
+    - unfold Decidable.decidable.
+      destruct (projEqb a1 b1) eqn:eq. {
+        apply projEqbIsEquivalence in eq.
+        left. assumption.
+      } {
+        apply projEqbFalseNeq in eq.
+        right. assumption.
+      }
+  Qed.
+
+  Lemma ProdNeqAnd : forall a1 a2 b1 b2, (Prod a1 a2) <> (Prod b1 b2) -> ~(a1 = b1 /\ a2 = b2).
+  Proof.
+    intros.
+    intros eq.
+    destruct eq.
+    subst.
+    apply H.
+    reflexivity.
+  Qed.
+
+  Lemma ProdNeqOr : forall a1 a2 b1 b2, (Prod a1 a2) <> (Prod b1 b2) -> (~ a1 = b1 \/ ~ a2 = b2).
+  Proof.
+    intros.
+    apply ProdNeqAnd in H.
+    apply Decidable.not_and in H.
+    - assumption.
+    - unfold Decidable.decidable.
+      destruct (projEqb a1 b1) eqn:eq. {
+        apply projEqbIsEquivalence in eq.
+        left. assumption.
+      } {
+        apply projEqbFalseNeq in eq.
+        right. assumption.
+      }
+  Qed.
+
+  Lemma SeqNeqAnd : forall a1 a2 b1 b2, (Seq a1 a2) <> (Seq b1 b2) -> ~(a1 = b1 /\ a2 = b2).
+  Proof.
+    intros.
+    intros eq.
+    destruct eq.
+    subst.
+    apply H.
+    reflexivity.
+  Qed.
+
+  Lemma SeqNeqOr : forall a1 a2 b1 b2, (Seq a1 a2) <> (Seq b1 b2) -> (~ a1 = b1 \/ ~ a2 = b2).
+  Proof.
+    intros.
+    apply SeqNeqAnd in H.
+    apply Decidable.not_and in H.
+    - assumption.
+    - unfold Decidable.decidable.
+      destruct (projEqb a1 b1) eqn:eq. {
+        apply projEqbIsEquivalence in eq.
+        left. assumption.
+      } {
+        apply projEqbFalseNeq in eq.
+        right. assumption.
+      }
+  Qed.
+
+  Lemma NeqProjEqbFalse : forall a b, a <> b -> projEqb a b = false.
+  Proof.
+    induction a ; intros b neq. {
+      destruct b ; try (simpl ; reflexivity ; fail). {
+        simpl.
+        apply TaskNeq in neq.
+        apply Nat.eqb_neq. assumption.
+      }
+    } {
+      destruct b ; try (simpl ; reflexivity ; fail). {
+        simpl.
+        apply SumNeqOr in neq.
+        destruct neq. {
+          apply IHa1 in H.
+          rewrite H.
+          reflexivity.
+        } {
+          apply IHa2 in H.
+          rewrite H.
+          rewrite Bool.andb_comm.
+          reflexivity.
+        }
+      }
+    } {
+      destruct b ; try (simpl ; reflexivity ; fail). {
+        simpl.
+        apply ProdNeqOr in neq.
+        destruct neq. {
+          apply IHa1 in H.
+          rewrite H.
+          reflexivity.
+        } {
+          apply IHa2 in H.
+          rewrite H.
+          rewrite Bool.andb_comm.
+          reflexivity.
+        }
+      }
+    } {
+      destruct b ; try (simpl ; reflexivity ; fail). {
+        simpl.
+        apply SeqNeqOr in neq.
+        destruct neq. {
+          apply IHa1 in H.
+          rewrite H.
+          reflexivity.
+        } {
+          apply IHa2 in H.
+          rewrite H.
+          rewrite Bool.andb_comm.
+          reflexivity.
+        }
+      }
+    }
+  Qed.
+
+  Ltac proj_eq_split a b :=
+    match goal with
+      a : _, b : _ |- _ =>
+      destruct (projEqb a b) eqn:eq ;
+      [ apply projEqbIsEquivalence in eq
+      | apply projEqbFalseNeq in eq ]
+    end .
+
+  Fixpoint projReplaceSame2 (a b: Project) {struct a} : projReplace a b b = a.
+  Proof.
+    destruct a. {
+      destruct b ; try reflexivity. {
+        simpl.
+        remember (n =? n0) as eq eqn:Eq.
+        destruct eq. {
+          apply  beq_nat_eq in Eq.
+          subst. reflexivity.
+        } {
+          reflexivity.
+        }
+      }
+    } {
+      simpl.
+      destruct b ;
+        try (repeat (rewrite projReplaceSame2) ; reflexivity). {
+
+      }
+
+
+      destruct b;
+        rewrite projReplaceSame2;
+        reflexivity.
+    } {
+      destruct b;
+        rewrite projReplaceSame2;
+        reflexivity.
+    } {
+      destruct b;
+        rewrite projReplaceSame2;
+        reflexivity.
+    }
+  Defined.
+
+
+  Lemma projReplaceSame2 : forall a b,  projReplace a b b = a.
+  Proof.
+    intros a b.
+    destruct (projEqb a b) eqn:eq. {
+      apply projEqbIsEquivalence in eq. subst.
+      apply projReplaceSameRep.
+    } {
+      apply projEqbFalseNeq in eq.
+      (* clear eq. *)
+
+      generalize dependent b.
+      induction a ; intros b neq. {
+        (* a = Task n *)
+        destruct b ; try reflexivity. {
+          (* b = Task n0 *)
+          simpl.
+          apply TaskNeq in neq.
+          apply Nat.eqb_neq in neq.
+          rewrite neq.
+          reflexivity.
+        }
+      } {
+        (* a = Sum a1 a2 *)
+        destruct b. {
+          (* b = Task n *)
+          remember (projEqb a1 (Task n)) as eqb1 eqn:a1eq.
+          remember (projEqb a2 (Task n)) as eqb2 eqn:a2eq.
+          destruct eqb1. {
+            symmetry in a1eq.
+            apply projEqbIsEquivalence in a1eq.
+            rewrite a1eq. simpl.
+            rewrite Nat.eqb_refl.
+            destruct eqb2. {
+              symmetry in a2eq.
+              apply projEqbIsEquivalence in a2eq.
+              subst.
+              simpl.
+              rewrite Nat.eqb_refl.
+              reflexivity.
+            } {
+              symmetry in a2eq.
+              apply projEqbFalseNeq in a2eq. subst.
+              simpl.
+              rewrite IHa2.
+              - reflexivity.
+              - assumption.
+            }
+          } {
+            symmetry in a1eq.
+            apply projEqbFalseNeq in a1eq.
+            simpl.
+            rewrite IHa1 ; clear IHa1. {
+              destruct eqb2. {
+                symmetry in a2eq.
+                apply projEqbIsEquivalence in a2eq.
+                subst.
+                simpl.
+                rewrite Nat.eqb_refl.
+                reflexivity.
+              } {
+                symmetry in a2eq.
+                apply projEqbFalseNeq in a2eq.
+                rewrite IHa2.
+                - reflexivity.
+                - assumption.
+              }
+            } {
+              assumption.
+            }
+          }
+        } {
+          (* b = Sum b1 b2 *)
+          simpl.
+          apply SumNeqOr in neq.
+          assert ((projEqb a1 b1 && projEqb a2 b2)%bool = false). {
+            destruct neq. {
+              apply NeqProjEqbFalse in H.
+              rewrite H.
+              reflexivity.
+            } {
+              apply NeqProjEqbFalse in H.
+              rewrite H.
+              rewrite Bool.andb_comm.
+              reflexivity.
+            }
+          }
+          rewrite H.
+
+        } {
+          simpl.
+        }
+      }
+
+  Lemma projReplaceNotReversible :
+    exists orig a b, orig <> projReplace (projReplace orig a b) b a.
+  Proof.
+    exists (Task 0), (Task 1), (Task 0).
+    intros H.
+    simpl in H.
+    discriminate.
+  Qed.
+
+
+
+  Lemma projReplaceReversible :
+    forall orig a b, orig <> b -> orig = projReplace (projReplace orig a b) b a.
+  Proof.
+    induction orig ; intros a b neq. {
+      simpl.
+      destruct a. {
+        remember (n =? n0) as nn0.
+        destruct nn0. {
+          rewrite projReplaceSameRep.
+          apply beq_nat_eq in Heqnn0. rewrite Heqnn0.
+          reflexivity.
+        } {
+          simpl.
+          destruct b. {
+            remember (n =? n1) as nn1.
+            destruct nn1. {
+
+            }
+
+            symmetry in Heqnn0.
+            apply beq_nat_false in Heqnn0.
+
+          }
+
+          simpl.
+        }
+      }
+    }
+
+
+  Lemma replacementPreserves : forall orig a b, a <= b -> (projReplace orig a b) <= orig.
+  Proof.
+    unfoldproj.
+    intros.
+    destructexists.
+
+
+
 End Lemmas.
 
 Open Scope nat.
