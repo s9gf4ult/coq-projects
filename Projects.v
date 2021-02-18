@@ -494,134 +494,91 @@ Section Lemmas.
       | apply projEqbFalseNeq in eq ]
     end .
 
-  Fixpoint projReplaceSame2 (a b: Project) {struct a} : projReplace a b b = a.
+  Fixpoint projReplaceSame2 (a b: Project) {struct a}
+    : projReplace a b b = a.
   Proof.
-    destruct a. {
-      destruct b ; try reflexivity. {
-        simpl.
-        remember (n =? n0) as eq eqn:Eq.
-        destruct eq. {
-          apply  beq_nat_eq in Eq.
-          subst. reflexivity.
-        } {
-          reflexivity.
-        }
-      }
-    } {
-      simpl.
-      destruct b ;
-        try (repeat (rewrite projReplaceSame2) ; reflexivity). {
-
-      }
-
-
-      destruct b;
-        rewrite projReplaceSame2;
-        reflexivity.
-    } {
-      destruct b;
-        rewrite projReplaceSame2;
-        reflexivity.
-    } {
-      destruct b;
-        rewrite projReplaceSame2;
-        reflexivity.
-    }
-  Defined.
-
-
-  Lemma projReplaceSame2 : forall a b,  projReplace a b b = a.
-  Proof.
-    intros a b.
     destruct (projEqb a b) eqn:eq. {
       apply projEqbIsEquivalence in eq. subst.
       apply projReplaceSameRep.
     } {
-      apply projEqbFalseNeq in eq.
-      (* clear eq. *)
-
-      generalize dependent b.
-      induction a ; intros b neq. {
-        (* a = Task n *)
+      destruct a. {
         destruct b ; try reflexivity. {
-          (* b = Task n0 *)
-          simpl.
-          apply TaskNeq in neq.
-          apply Nat.eqb_neq in neq.
-          rewrite neq.
+          unfold projReplace.
+          rewrite eq.
           reflexivity.
         }
       } {
-        (* a = Sum a1 a2 *)
-        destruct b. {
-          (* b = Task n *)
-          remember (projEqb a1 (Task n)) as eqb1 eqn:a1eq.
-          remember (projEqb a2 (Task n)) as eqb2 eqn:a2eq.
-          destruct eqb1. {
-            symmetry in a1eq.
-            apply projEqbIsEquivalence in a1eq.
-            rewrite a1eq. simpl.
-            rewrite Nat.eqb_refl.
-            destruct eqb2. {
-              symmetry in a2eq.
-              apply projEqbIsEquivalence in a2eq.
-              subst.
-              simpl.
-              rewrite Nat.eqb_refl.
-              reflexivity.
-            } {
-              symmetry in a2eq.
-              apply projEqbFalseNeq in a2eq. subst.
-              simpl.
-              rewrite IHa2.
-              - reflexivity.
-              - assumption.
-            }
-          } {
-            symmetry in a1eq.
-            apply projEqbFalseNeq in a1eq.
+        destruct b ;
+          try (
+          simpl ;
+          repeat (rewrite projReplaceSame2) ;
+          reflexivity ;
+          fail ).  {
+          simpl.
+          repeat (rewrite projReplaceSame2).
+          apply projEqbFalseNeq in eq.
+          apply SumNeqOr in eq.
+          destruct eq. {
+            apply NeqProjEqbFalse in H.
+            rewrite H.
             simpl.
-            rewrite IHa1 ; clear IHa1. {
-              destruct eqb2. {
-                symmetry in a2eq.
-                apply projEqbIsEquivalence in a2eq.
-                subst.
-                simpl.
-                rewrite Nat.eqb_refl.
-                reflexivity.
-              } {
-                symmetry in a2eq.
-                apply projEqbFalseNeq in a2eq.
-                rewrite IHa2.
-                - reflexivity.
-                - assumption.
-              }
-            } {
-              assumption.
-            }
+            reflexivity.
+          } {
+            apply NeqProjEqbFalse in H.
+            rewrite H.
+            rewrite Bool.andb_comm.
+            reflexivity.
           }
-        } {
-          (* b = Sum b1 b2 *)
+        }
+      } {
+        destruct b ;
+          try (
+          simpl ;
+          repeat (rewrite projReplaceSame2) ;
+          reflexivity ;
+          fail ).  {
           simpl.
-          apply SumNeqOr in neq.
-          assert ((projEqb a1 b1 && projEqb a2 b2)%bool = false). {
-            destruct neq. {
-              apply NeqProjEqbFalse in H.
-              rewrite H.
-              reflexivity.
-            } {
-              apply NeqProjEqbFalse in H.
-              rewrite H.
-              rewrite Bool.andb_comm.
-              reflexivity.
-            }
+          repeat (rewrite projReplaceSame2).
+          apply projEqbFalseNeq in eq.
+          apply ProdNeqOr in eq.
+          destruct eq. {
+            apply NeqProjEqbFalse in H.
+            rewrite H.
+            simpl.
+            reflexivity.
+          } {
+            apply NeqProjEqbFalse in H.
+            rewrite H.
+            rewrite Bool.andb_comm.
+            reflexivity.
           }
-          rewrite H.
-
-        } {
+        }
+      } {
+        destruct b ;
+          try (
+          simpl ;
+          repeat (rewrite projReplaceSame2) ;
+          reflexivity ;
+          fail ).  {
           simpl.
+          repeat (rewrite projReplaceSame2).
+          apply projEqbFalseNeq in eq.
+          apply SeqNeqOr in eq.
+          destruct eq. {
+            apply NeqProjEqbFalse in H.
+            rewrite H.
+            simpl.
+            reflexivity.
+          } {
+            apply NeqProjEqbFalse in H.
+            rewrite H.
+            rewrite Bool.andb_comm.
+            reflexivity.
+          }
         }
       }
+    }
+  Qed.
 
   Lemma projReplaceNotReversible :
     exists orig a b, orig <> projReplace (projReplace orig a b) b a.
@@ -631,8 +588,6 @@ Section Lemmas.
     simpl in H.
     discriminate.
   Qed.
-
-
 
   Lemma projReplaceReversible :
     forall orig a b, orig <> b -> orig = projReplace (projReplace orig a b) b a.
