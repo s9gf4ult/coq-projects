@@ -325,6 +325,48 @@ Section Lemmas.
     discriminate.
   Qed.
 
+  Inductive ProjReplace : Project -> Project -> Project -> Project -> Prop :=
+  | ProjRepl : forall orig new, ProjReplace orig orig new new
+  | Proj : forall orig a b new,
+      (orig <> a) -> PRCase orig a b new -> ProjReplace orig a b new
+  with
+    PRCase : Project -> Project -> Project -> Project -> Prop :=
+  | PRTask : forall n a b, PRCase (Task n) a b (Task n)
+  | PRSum : forall p1 p2 p1' p2' a b,
+      ProjReplace p1 a b p1'
+      -> ProjReplace p2 a b p2'
+      -> PRCase (Sum p1 p2) a b (Sum p1' p2')
+  | PRProd : forall p1 p2 p1' p2' a b,
+      ProjReplace p1 a b p1'
+      -> ProjReplace p2 a b p2'
+      -> PRCase (Prod p1 p2) a b (Prod p1' p2')
+  | PRSeq : forall p1 p2 p1' p2' a b,
+      ProjReplace p1 a b p1'
+      -> ProjReplace p2 a b p2'
+      -> PRCase (Seq p1 p2) a b (Seq p1' p2')
+  .
+
+  Lemma ProjReplaceAABB : forall a b, ProjReplace a a b b.
+  Proof.
+    apply ProjRepl.
+  Qed.
+
+  Fixpoint ProjReplaceABBA (a : Project) : forall b, ProjReplace a b b a.
+  Proof.
+    intros.
+    destruct (projEqb a b) eqn:Eq. {
+      apply projEqbIsEquivalence in Eq.
+      subst.
+      apply ProjRepl.
+    } {
+      apply projEqbFalseNeq in Eq.
+      apply Proj ; try assumption.
+      destruct a
+      ; constructor
+      ; repeat (apply ProjReplaceABBA).
+    }
+  Qed.
+
   Fixpoint projReplace (orig a b : Project) : Project :=
     match projEqb orig a with
     | true => b
@@ -337,7 +379,7 @@ Section Lemmas.
       end
     end.
 
-  Lemma projReplaceSameRep : forall a b, projReplace a a b = b.
+  Lemma projReplaceAABB : forall a b, projReplace a a b = b.
   Proof.
     destruct a ; intros
     ; try ( simpl; repeat (rewrite projEqbRefl); simpl; reflexivity ; fail ). {
@@ -494,12 +536,12 @@ Section Lemmas.
       | apply projEqbFalseNeq in eq ]
     end .
 
-  Fixpoint projReplaceSame2 (a b: Project) {struct a}
+  Fixpoint projReplaceABBA (a b: Project) {struct a}
     : projReplace a b b = a.
   Proof.
     destruct (projEqb a b) eqn:eq. {
       apply projEqbIsEquivalence in eq. subst.
-      apply projReplaceSameRep.
+      apply projReplaceAABB.
     } {
       destruct a. {
         destruct b ; try reflexivity. {
@@ -511,11 +553,11 @@ Section Lemmas.
         destruct b ;
           try (
           simpl ;
-          repeat (rewrite projReplaceSame2) ;
+          repeat (rewrite projReplaceABBA) ;
           reflexivity ;
           fail ).  {
           simpl.
-          repeat (rewrite projReplaceSame2).
+          repeat (rewrite projReplaceABBA).
           apply projEqbFalseNeq in eq.
           apply SumNeqOr in eq.
           destruct eq. {
@@ -534,11 +576,11 @@ Section Lemmas.
         destruct b ;
           try (
           simpl ;
-          repeat (rewrite projReplaceSame2) ;
+          repeat (rewrite projReplaceABBA) ;
           reflexivity ;
           fail ).  {
           simpl.
-          repeat (rewrite projReplaceSame2).
+          repeat (rewrite projReplaceABBA).
           apply projEqbFalseNeq in eq.
           apply ProdNeqOr in eq.
           destruct eq. {
@@ -557,11 +599,11 @@ Section Lemmas.
         destruct b ;
           try (
           simpl ;
-          repeat (rewrite projReplaceSame2) ;
+          repeat (rewrite projReplaceABBA) ;
           reflexivity ;
           fail ).  {
           simpl.
-          repeat (rewrite projReplaceSame2).
+          repeat (rewrite projReplaceABBA).
           apply projEqbFalseNeq in eq.
           apply SeqNeqOr in eq.
           destruct eq. {
@@ -579,6 +621,41 @@ Section Lemmas.
       }
     }
   Qed.
+
+
+  Lemma projReplaceToInd (orig : Project) : forall a b new,
+      projReplace orig a b = new -> ProjReplace orig a b new.
+  Proof.
+    intros.
+    destruct (projEqb orig a) eqn:Eq. {
+      apply projEqbIsEquivalence in Eq. subst.
+      rewrite projReplaceAABB.
+      apply ProjReplaceAABB.
+    } {
+      apply projEqbFalseNeq in Eq.
+      constructor ; try assumption.
+      induction orig. {
+        destruct a ; try (simpl in H ; subst ; constructor ; fail). {
+          simpl in H.
+          apply TaskNeq in Eq.
+          rewrite <- Nat.eqb_neq in Eq.
+          rewrite Eq in H. subst.
+          constructor.
+        }
+      } {
+        destruct a. {
+          simpl in H.
+          subst.
+          constructor. {
+
+          }
+          rewrite projReplaceToInd in H.
+          assumption.
+          constructor.
+        }
+      }
+    }
+
 
   Lemma projReplaceNotReversible :
     exists orig a b, orig <> projReplace (projReplace orig a b) b a.
